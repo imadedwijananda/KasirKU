@@ -14,12 +14,19 @@
 <link rel="stylesheet" href="tema.css">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Kasir UMKM</title>
+<title>KasirKU</title>
 <meta name="description" content="Aplikasi kasir offline untuk UMKM: produk, stok, struk, laporan.">
 <meta name="theme-color" content="#6c2bd9">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KasirKU">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="ikon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="ikon.svg">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="fontTema" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap">
@@ -210,7 +217,10 @@
         <h3>Akun</h3>
         <p>Masuk sebagai <b id="akunEmail">-</b></p>
         <p class="redup kecil" id="statusAwan" role="status" aria-live="polite"></p>
-        <div class="aksi wrap"><button type="button" class="tombol" id="btnKeluarAkun">Keluar dari akun</button></div>
+        <div class="aksi wrap">
+          <button type="button" class="tombol" id="btnPasangAkun" hidden>Pasang aplikasi</button>
+          <button type="button" class="tombol" id="btnKeluarAkun">Keluar dari akun</button>
+        </div>
       </div>
       <div class="panel">
         <h3>Data</h3>
@@ -237,6 +247,18 @@
 <!-- Struk cetak -->
 <div id="struk" class="struk" aria-hidden="true"></div>
 <div id="toast" class="toast" role="status"></div>
+
+<div id="bannerPasang" class="banner-pasang" hidden role="dialog" aria-labelledby="judulBannerPasang" aria-live="polite">
+  <img src="icons/icon-192.png" alt="" width="48" height="48">
+  <div class="banner-pasang-teks">
+    <b id="judulBannerPasang">Pasang KasirKU di HP kamu</b>
+    <p class="redup kecil" id="teksBannerPasang">Akses lebih cepat dari layar utama, bisa dipakai offline.</p>
+  </div>
+  <div class="banner-pasang-aksi">
+    <button type="button" class="tautan" id="btnPasangNanti">Nanti</button>
+    <button type="button" class="tombol utama" id="btnPasang">Pasang</button>
+  </div>
+</div>
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>

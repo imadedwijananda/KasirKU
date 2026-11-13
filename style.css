@@ -443,3 +443,16 @@ html.mode-pilih [data-pilih-hover]{outline:2px solid #f43f5e!important;outline-o
 .foto-baris{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .foto-pratinjau{width:64px;height:64px;flex:none}
 @media print{.struk .struk-logo{display:block;width:22mm;height:auto;margin:0 auto 2mm}}
+
+/* ===== banner pasang PWA ===== */
+.banner-pasang{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:80;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--kartu);color:var(--teks);border:1px solid var(--garis);border-radius:var(--r-besar);padding:14px 16px;box-shadow:var(--bayang-tinggi);animation:naik .4s var(--halus) both}
+.banner-pasang[hidden]{display:none!important}
+.banner-pasang img{width:48px;height:48px;border-radius:12px;flex:none;background:#6c2bd9}
+.banner-pasang-teks{flex:1;min-width:160px}
+.banner-pasang-teks b{display:block;font-weight:800}
+.banner-pasang-teks p{margin:2px 0 0}
+.banner-pasang-aksi{margin-left:auto;display:flex;gap:8px;align-items:center}
+@media (max-width:480px){
+  .banner-pasang{padding:14px 14px 12px}
+  .banner-pasang-aksi{width:100%;justify-content:flex-end}
+}
