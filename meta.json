@@ -1,0 +1,52 @@
+{
+  "slug": "kasir-umkm",
+  "judul": "Kasir UMKM Offline",
+  "ringkas": "Aplikasi kasir PWA untuk warung & kafe: stok, varian harga, diskon, QRIS, struk 58mm, laporan. Jalan tanpa internet.",
+  "teknologi": [
+    "HTML",
+    "CSS",
+    "JavaScript",
+    "PWA",
+    "Service Worker",
+    "localStorage"
+  ],
+  "kategori": "Aplikasi Web",
+  "tier": "premium",
+  "fitur": [
+    "Produk, kategori, stok & varian harga",
+    "Keranjang, diskon Rp/% & kembalian otomatis",
+    "Bayar tunai, QRIS, atau transfer",
+    "Struk siap cetak printer thermal 58mm",
+    "Riwayat transaksi + pembatalan kembalikan stok",
+    "Laporan harian/bulanan & produk terlaris",
+    "Ekspor/impor CSV dan backup JSON",
+    "Multi-kasir dengan PIN lokal",
+    "Bisa di-install & jalan offline (PWA)"
+  ],
+  "cara": [
+    "Unggah folder ke hosting HTTPS (GitHub Pages/Netlify)",
+    "Buka di HP/laptop, lalu Install / Tambah ke layar utama",
+    "Masuk sebagai Admin (PIN 1234) dan ganti PIN",
+    "Isi profil toko, ganti qris.svg dengan QRIS tokomu",
+    "Tambah produk atau impor CSV, lalu mulai jualan"
+  ],
+  "demo": "index.html?demo",
+  "kustom": true,
+  "berkas": [
+    "LICENSE",
+    "README.md",
+    "AGENTS.md",
+    "DESIGN.md",
+    ".claude/skills/ubah-kasir-umkm/SKILL.md",
+    "index.html",
+    "style.css",
+    "app.js",
+    "tema.css",
+    "tema.js",
+    "sw.js",
+    "manifest.webmanifest",
+    "ikon.svg",
+    "qris.svg"
+  ],
+  "pratinjau": "index.html?demo"
+}

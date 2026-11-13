@@ -1,0 +1,188 @@
+<!doctype html>
+<!-- kredit-maliki: Template oleh Maliki Saputra (@malikisaputra) — https://malikisaputra.biz.id. Lisensi MIT + wajib atribusi (lihat LICENSE). -->
+<html lang="id" data-mode="terang">
+<head>
+<script src="tema.js"></script>
+<script>
+/* Set mode dari TEMA.mode sebelum render (tanpa kedip). */
+(function () {
+  var m = (window.TEMA && TEMA.mode) || 'terang';
+  if (m === 'auto') m = matchMedia('(prefers-color-scheme: dark)').matches ? 'gelap' : 'terang';
+  document.documentElement.setAttribute('data-mode', m);
+})();
+</script>
+<link rel="stylesheet" href="tema.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kasir UMKM</title>
+<meta name="description" content="Aplikasi kasir offline untuk UMKM: produk, stok, struk, laporan.">
+<meta name="theme-color" content="#1f5f3f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="ikon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="ikon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fontTema" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Layar masuk -->
+<section id="layarMasuk" class="masuk" hidden>
+  <div class="masuk-merek">
+    <div class="merek"><svg class="logo" viewBox="0 0 64 64" width="40" height="40" aria-hidden="true"><rect width="64" height="64" rx="16" fill="var(--aksen)"/><rect x="14" y="16" width="36" height="24" rx="4" fill="#fff"/><rect x="19" y="21" width="16" height="4" rx="2" fill="var(--utama)"/><rect x="19" y="29" width="26" height="3" rx="1.5" fill="color-mix(in srgb,var(--utama) 45%,#fff)"/><path d="M20 44h24l3 6H17z" fill="#fff"/></svg><span>Kasir</span></div>
+    <div class="masuk-ilus" id="masukIlus" aria-hidden="true"></div>
+    <p class="masuk-slogan">Jualan cepat, stok rapi,<br>laporan beres, tanpa internet.</p>
+  </div>
+  <div class="masuk-form">
+  <div class="masuk-kartu">
+    <h1 id="masukToko" data-tema-nama>Kasir UMKM</h1>
+    <p class="redup">Pilih kasir, lalu masukkan PIN.</p>
+    <div id="daftarKasir" class="pilih-kasir" role="group" aria-label="Pilih kasir"></div>
+    <div class="pin-titik" id="pinTitik" aria-label="PIN 4 angka"><i></i><i></i><i></i><i></i></div>
+    <div class="pad" id="padPin"></div>
+    <p class="redup kecil">PIN contoh: Admin 1234 · Sari 1111</p>
+  </div>
+  </div>
+</section>
+
+<div id="aplikasi" class="app" hidden>
+  <nav class="samping">
+    <div class="merek"><svg class="logo" viewBox="0 0 64 64" width="32" height="32" aria-hidden="true"><rect width="64" height="64" rx="16" fill="var(--utama)"/><rect x="14" y="16" width="36" height="24" rx="4" fill="color-mix(in srgb,var(--utama) 18%,#fff)"/><rect x="19" y="21" width="16" height="4" rx="2" fill="var(--utama)"/><rect x="19" y="29" width="26" height="3" rx="1.5" fill="color-mix(in srgb,var(--utama) 55%,#fff)"/><path d="M20 44h24l3 6H17z" fill="var(--aksen)"/></svg><span id="namaTokoNav" data-tema-nama>Kasir UMKM</span></div>
+    <button class="nav aktif" data-hal="kasir"><svg viewBox="0 0 24 24"><path d="M3 5h18v10H3zM7 19h10M12 15v4"/></svg><span>Kasir</span></button>
+    <button class="nav" data-hal="produk"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10"/></svg><span>Produk</span></button>
+    <button class="nav" data-hal="riwayat"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg><span>Riwayat</span></button>
+    <button class="nav" data-hal="laporan"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Laporan</span></button>
+    <button class="nav" data-hal="atur"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg><span>Atur</span></button>
+    <div class="pengguna"><span class="avatar" id="avatarKasir" aria-hidden="true">A</span><span id="namaKasir">-</span><button id="btnKeluar" class="tautan" aria-label="Keluar"><svg viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg></button></div>
+  </nav>
+
+  <main>
+    <!-- KASIR -->
+    <section class="hal aktif" id="hal-kasir">
+      <div class="pos">
+        <div class="pos-kiri">
+          <header class="bar">
+            <div class="bar-judul"><h2>Pilih menu</h2><span class="redup kecil" id="tglHariIni"></span></div>
+            <label class="cari"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="cariProduk" type="search" placeholder="Cari menu…" aria-label="Cari produk"></label>
+          </header>
+          <div class="chip-baris" id="chipKategori"></div>
+          <div class="grid-produk" id="gridProduk"></div>
+        </div>
+        <aside class="keranjang" id="panelKeranjang">
+          <header class="ker-kepala">
+            <div><h2>Pesanan <span id="kerNomor" class="nomor">#0001</span></h2><span class="redup kecil" id="kerJumlah">0 item</span></div>
+            <button class="tautan" id="btnKosongkan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Kosongkan</button>
+          </header>
+          <ul class="ker-daftar" id="kerDaftar"></ul>
+          <div class="ker-ringkas">
+            <div class="baris"><span>Subtotal</span><b id="kSubtotal">Rp0</b></div>
+            <div class="baris diskon" id="kDiskonBaris">
+              <span>Diskon</span>
+              <span class="diskon-input">
+                <input id="inDiskon" type="number" min="0" inputmode="numeric" value="0" aria-label="Nilai diskon">
+                <select id="tipeDiskon" aria-label="Tipe diskon"><option value="rp">Rp</option><option value="persen">%</option></select>
+              </span>
+            </div>
+            <div class="baris total"><span>Total</span><b id="kTotal">Rp0</b></div>
+            <button class="tombol utama besar" id="btnBayar" disabled><span>Bayar</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </div>
+        </aside>
+        <button class="fab-keranjang" id="fabKeranjang"><span class="fab-n"><span id="fabJumlah">0</span> item</span><b id="fabTotal">Rp0</b><span class="fab-lihat">Lihat pesanan</span></button>
+      </div>
+    </section>
+
+    <!-- PRODUK -->
+    <section class="hal" id="hal-produk">
+      <header class="hal-kepala">
+        <h2>Produk &amp; Stok</h2>
+        <div class="aksi">
+          <button class="tombol" id="btnKategori">Kategori</button>
+          <button class="tombol utama" id="btnTambahProduk">+ Produk</button>
+        </div>
+      </header>
+      <input id="cariKelola" type="search" placeholder="Cari nama produk…" class="cari-lebar">
+      <div class="tabel-bungkus"><table class="tabel" id="tabelProduk"></table></div>
+    </section>
+
+    <!-- RIWAYAT -->
+    <section class="hal" id="hal-riwayat">
+      <header class="hal-kepala">
+        <h2>Riwayat Transaksi</h2>
+        <div class="aksi"><input type="date" id="filterTanggal" aria-label="Filter tanggal"><button class="tombol" id="btnEksporTrx">Ekspor CSV</button></div>
+      </header>
+      <div class="daftar-trx" id="daftarTrx"></div>
+    </section>
+
+    <!-- LAPORAN -->
+    <section class="hal" id="hal-laporan">
+      <header class="hal-kepala">
+        <h2>Laporan</h2>
+        <div class="aksi segmen" id="segLaporan">
+          <button data-mode="hari" class="aktif">Harian</button>
+          <button data-mode="bulan">Bulanan</button>
+        </div>
+      </header>
+      <input type="date" id="tglLaporan" class="cari-lebar" aria-label="Tanggal laporan">
+      <div class="kartu-angka" id="kartuAngka"></div>
+      <div class="dua-kolom">
+        <div class="panel"><h3 id="judulGrafik">Penjualan per jam</h3><div id="grafik" class="grafik"></div></div>
+        <div class="panel"><h3>Produk terlaris</h3><ol id="terlaris" class="terlaris"></ol></div>
+      </div>
+      <div class="panel"><h3>Metode bayar</h3><div id="metodeRingkas" class="metode-ringkas"></div></div>
+    </section>
+
+    <!-- PENGATURAN -->
+    <section class="hal" id="hal-atur">
+      <header class="hal-kepala"><h2>Pengaturan</h2></header>
+      <div class="dua-kolom">
+        <form class="panel form" id="formToko">
+          <h3>Profil toko (untuk struk)</h3>
+          <label>Nama toko<input name="nama" required></label>
+          <label>Alamat<input name="alamat"></label>
+          <label>Telepon<input name="telp"></label>
+          <label>Catatan kaki struk<input name="footer"></label>
+          <label>Nama bank &amp; no. rekening (transfer)<input name="rekening"></label>
+          <button class="tombol utama">Simpan</button>
+        </form>
+        <div class="panel">
+          <h3>Kasir &amp; PIN</h3>
+          <ul class="daftar-kasir" id="daftarKasirAtur"></ul>
+          <form class="form sebaris" id="formKasir">
+            <input name="nama" placeholder="Nama" required>
+            <input name="pin" placeholder="PIN 4 angka" pattern="\d{4}" inputmode="numeric" maxlength="4" required>
+            <select name="peran"><option value="kasir">Kasir</option><option value="admin">Admin</option></select>
+            <button class="tombol">Tambah</button>
+          </form>
+          <p class="redup kecil">Kasir biasa tidak bisa mengubah produk, pengaturan, dan menghapus transaksi.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Data</h3>
+        <div class="aksi wrap">
+          <button class="tombol" id="btnBackup">Backup JSON</button>
+          <label class="tombol">Pulihkan JSON<input type="file" id="fileBackup" accept=".json,application/json" hidden></label>
+          <button class="tombol" id="btnEksporProduk">Ekspor produk CSV</button>
+          <label class="tombol">Impor produk CSV<input type="file" id="fileCsv" accept=".csv,text/csv" hidden></label>
+          <button class="tombol" id="btnContoh">Isi data contoh</button>
+          <button class="tombol bahaya" id="btnReset">Hapus semua data</button>
+        </div>
+        <p class="redup kecil">Format CSV produk: nama,kategori,stok,varian (varian ditulis <code>Reguler:15000|Large:20000</code>). Semua data tersimpan di perangkat ini saja (offline).</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bawah" id="navBawah"></nav>
+</div>
+
+<!-- Dialog -->
+<dialog id="dlg"><form method="dialog" id="dlgIsi"></form></dialog>
+
+<!-- Struk cetak -->
+<div id="struk" class="struk" aria-hidden="true"></div>
+<div id="toast" class="toast" role="status"></div>
+
+<script src="app.js"></script>
+  <p class="kredit-maliki" style="margin:24px auto 112px;padding:0 16px;text-align:center;font:12px/1.5 system-ui,sans-serif;opacity:.7">Template oleh <a href="https://malikisaputra.biz.id" target="_blank" rel="noopener" style="color:inherit">@malikisaputra</a></p>
+</body>
+</html>
