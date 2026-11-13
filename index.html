@@ -180,6 +180,10 @@
     <!-- PENGATURAN -->
     <section class="hal" id="hal-atur">
       <header class="hal-kepala"><h2>Pengaturan</h2></header>
+      <div id="kunciAtur" class="panel" hidden>
+        <p>Hanya Admin yang bisa mengubah pengaturan.</p>
+      </div>
+      <div id="isiAtur">
       <div class="dua-kolom">
         <form class="panel form" id="formToko">
           <h3>Profil toko (untuk struk)</h3>
@@ -199,7 +203,7 @@
             <select name="peran"><option value="kasir">Kasir</option><option value="admin">Admin</option></select>
             <button class="tombol">Tambah</button>
           </form>
-          <p class="redup kecil">Kasir biasa tidak bisa mengubah produk, pengaturan, dan menghapus transaksi.</p>
+          <p class="redup kecil" id="catatanKasir">Hanya Admin yang bisa mengubah pengaturan, produk, data kasir, dan membatalkan transaksi. Harus selalu ada minimal satu Admin. PIN terdiri dari 4 angka dan tidak boleh sama dengan kasir lain.</p>
         </div>
       </div>
       <div class="panel">
@@ -219,6 +223,7 @@
           <button class="tombol bahaya" id="btnReset">Hapus semua data</button>
         </div>
         <p class="redup kecil">Format CSV produk: nama,kategori,stok,varian (varian ditulis <code>Reguler:15000|Large:20000</code>). Data disimpan di perangkat ini (bisa offline) dan disinkronkan ke akun kamu saat online.</p>
+      </div>
       </div>
     </section>
   </main>

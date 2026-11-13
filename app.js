@@ -77,6 +77,21 @@
     if (D.toko.namaDariTema === undefined) D.toko.namaDariTema = D.toko.nama === 'Kopi Senja' || D.toko.nama === 'Toko Saya';
     if (D.toko.namaDariTema && akun && akun.namaToko) { D.toko.nama = akun.namaToko; D.toko.namaDariTema = false; }
     else if (D.toko.namaDariTema) D.toko.nama = NAMA_TEMA;
+    normalisasiKasir();
+  }
+  // Data lama tetap kompatibel: id/nama/pin/peran. Pastikan ada minimal satu admin.
+  function normalisasiKasir() {
+    if (!D.kasir || !D.kasir.length) {
+      D.kasir = [{ id: 'k1', nama: 'Admin', pin: '1234', peran: 'admin' }];
+      return;
+    }
+    D.kasir.forEach(function (k) {
+      if (!k.id) k.id = uid();
+      k.nama = String(k.nama || 'Kasir').trim() || 'Kasir';
+      k.pin = String(k.pin == null ? '' : k.pin);
+      k.peran = k.peran === 'admin' ? 'admin' : 'kasir';
+    });
+    if (!D.kasir.some(function (k) { return k.peran === 'admin'; })) D.kasir[0].peran = 'admin';
   }
 
   // ---------- Tema (customizer Maliki Studio, lihat tema.css & tema.js) ----------
@@ -652,6 +667,21 @@
   // ---------- Sesi kasir ----------
   var pengguna = null, pinBuffer = '', kasirDipilih = null;
   function isAdmin() { return pengguna && pengguna.peran === 'admin'; }
+  function butuhAdmin(aksi) {
+    if (isAdmin()) return true;
+    toast('Hanya Admin yang bisa ' + (aksi || 'mengubah pengaturan'));
+    return false;
+  }
+  function jumlahAdmin(kecualiId) {
+    return D.kasir.filter(function (k) { return k.peran === 'admin' && k.id !== kecualiId; }).length;
+  }
+  function pinValid(pin) { return /^\d{4}$/.test(String(pin || '')); }
+  function pinDipakai(pin, kecualiId) {
+    return D.kasir.some(function (k) { return k.id !== kecualiId && String(k.pin) === String(pin); });
+  }
+  function terapkanHakAkses() {
+    $$('[data-hal="produk"],[data-hal="atur"]').forEach(function (b) { b.hidden = !isAdmin(); });
+  }
 
   function tampilMasuk() {
     $('#aplikasi').hidden = true; $('#layarAkun').hidden = true; $('#layarMasuk').hidden = false;
@@ -680,7 +710,7 @@
     $('#layarMasuk').hidden = true; $('#layarAkun').hidden = true; $('#aplikasi').hidden = false;
     $('#namaKasir').textContent = k.nama + (k.peran === 'admin' ? ' · admin' : '');
     $('#namaTokoNav').textContent = D.toko.nama;
-    $$('[data-hal="produk"],[data-hal="atur"]').forEach(function (b) { b.hidden = !isAdmin(); });
+    terapkanHakAkses();
     var tg = $('#tglHariIni'); if (tg) tg.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     var av = $('#avatarKasir'); if (av) av.textContent = inisial(k.nama);
     buka('kasir');
@@ -688,6 +718,10 @@
 
   // ---------- Navigasi ----------
   function buka(hal) {
+    if ((hal === 'atur' || hal === 'produk') && !isAdmin()) {
+      toast('Hanya Admin yang bisa mengubah pengaturan');
+      hal = 'kasir';
+    }
     $$('.hal').forEach(function (s) { s.classList.toggle('aktif', s.id === 'hal-' + hal); });
     try { $('main').scrollTop = 0; } catch (e) {}
     $$('.nav').forEach(function (b) { b.classList.toggle('aktif', b.dataset.hal === hal); });
@@ -852,6 +886,7 @@
   }
 
   function formProduk(p) {
+    if (!butuhAdmin('mengubah produk')) return;
     var baru = !p; p = p || { nama: '', kategori: D.kategori[0] || '', stok: 0, varian: [{ nama: 'Reguler', harga: 0 }] };
     function barisV(v) { return '<div class="varian-baris"><input placeholder="Nama varian" value="' + esc(v.nama) + '" required><input type="number" min="0" placeholder="Harga" value="' + v.harga + '" required><button type="button" aria-label="Hapus varian">×</button></div>'; }
     dialog('<h3>' + (baru ? 'Tambah' : 'Ubah') + ' produk</h3><div class="form">' +
@@ -883,6 +918,7 @@
   }
 
   function formKategori() {
+    if (!butuhAdmin('mengubah kategori')) return;
     function isi() {
       return '<h3>Kategori</h3><ul class="daftar-kasir">' + D.kategori.map(function (k, i) {
         var n = D.produk.filter(function (p) { return p.kategori === k; }).length;
@@ -955,12 +991,95 @@
 
   // ---------- Pengaturan ----------
   function renderAtur() {
+    var kunci = $('#kunciAtur'), isi = $('#isiAtur');
+    if (!isAdmin()) {
+      if (kunci) kunci.hidden = false;
+      if (isi) isi.hidden = true;
+      return;
+    }
+    if (kunci) kunci.hidden = true;
+    if (isi) isi.hidden = false;
     var ae = $('#akunEmail'); if (ae && akun) ae.textContent = akun.email || akun.nama || '-'; tampilStatusAwan();
     var f = $('#formToko');
     ['nama', 'alamat', 'telp', 'footer', 'rekening'].forEach(function (k) { f.elements[k].value = D.toko[k] || ''; });
     $('#daftarKasirAtur').innerHTML = D.kasir.map(function (k) {
-      return '<li><span><b>' + esc(k.nama) + '</b> <span class="lencana">' + k.peran + '</span></span>' + (k.id === pengguna.id ? '<span class="redup kecil">sedang masuk</span>' : '<button class="tautan" data-hk="' + k.id + '">Hapus</button>') + '</li>';
+      var hapus = k.id !== pengguna.id && !(k.peran === 'admin' && jumlahAdmin() <= 1);
+      return '<li><span><b>' + esc(k.nama) + '</b> <span class="lencana">' + k.peran + '</span>' +
+        (k.id === pengguna.id ? ' <span class="redup kecil">sedang masuk</span>' : '') + '</span>' +
+        '<span class="aksi-kasir"><button type="button" class="tautan" data-ek="' + k.id + '">Edit</button>' +
+        (hapus ? '<button type="button" class="tautan" data-hk="' + k.id + '">Hapus</button>' : '') +
+        '</span></li>';
     }).join('');
+  }
+
+  function formEditKasir(k) {
+    if (!butuhAdmin('mengubah data kasir')) return;
+    if (!k) return;
+    var sendiri = pengguna && k.id === pengguna.id;
+    var peranTerkunci = k.peran === 'admin' && jumlahAdmin() <= 1;
+    dialog('<h3>Edit ' + esc(k.nama) + '</h3><div class="form">' +
+      '<label>Nama<input id="eNama" required value="' + esc(k.nama) + '" autocomplete="off"></label>' +
+      (sendiri ? '<label>PIN saat ini (wajib jika mengganti PIN)<input id="ePinLama" inputmode="numeric" maxlength="4" pattern="\\d{4}" autocomplete="off"></label>' : '') +
+      '<label>PIN baru <span class="redup" style="font-weight:500">(kosongkan jika tidak diubah)</span><input id="ePin" inputmode="numeric" maxlength="4" pattern="\\d{4}" autocomplete="new-password" placeholder="4 angka"></label>' +
+      '<label>Ulangi PIN baru<input id="ePin2" inputmode="numeric" maxlength="4" pattern="\\d{4}" autocomplete="new-password"></label>' +
+      '<label>Peran<select id="ePeran"' + (peranTerkunci ? ' disabled' : '') + '>' +
+        '<option value="kasir"' + (k.peran !== 'admin' ? ' selected' : '') + '>Kasir</option>' +
+        '<option value="admin"' + (k.peran === 'admin' ? ' selected' : '') + '>Admin</option></select></label>' +
+      (peranTerkunci ? '<p class="redup kecil">Peran tidak bisa diubah karena ini Admin terakhir.</p>' : '') +
+      '</div><div class="dlg-aksi"><button class="tombol" value="batal" formnovalidate>Batal</button><button class="tombol utama" type="button" id="eSimpan">Simpan</button></div>', function (f) {
+        $('#eSimpan', f).onclick = function () {
+          var nama = $('#eNama', f).value.trim();
+          if (!nama) return toast('Nama wajib diisi');
+          var pinBaru = ($('#ePin', f).value || '').trim();
+          var pin2 = ($('#ePin2', f).value || '').trim();
+          if (pinBaru || pin2) {
+            if (!pinValid(pinBaru)) return toast('PIN baru harus 4 angka');
+            if (pinBaru !== pin2) return toast('PIN baru dan ulangi PIN belum sama');
+            if (pinDipakai(pinBaru, k.id)) return toast('PIN ini sudah dipakai kasir lain. Pilih PIN yang berbeda.');
+            if (sendiri) {
+              var lama = (($('#ePinLama', f) && $('#ePinLama', f).value) || '').trim();
+              if (lama !== String(k.pin)) return toast('PIN saat ini salah');
+            }
+          }
+          var peran = peranTerkunci ? k.peran : (($('#ePeran', f).value === 'admin') ? 'admin' : 'kasir');
+          if (k.peran === 'admin' && peran !== 'admin' && jumlahAdmin(k.id) < 1) return toast('Harus ada minimal satu Admin');
+          k.nama = nama;
+          if (pinBaru) k.pin = pinBaru;
+          k.peran = peran;
+          if (pengguna && pengguna.id === k.id) {
+            pengguna = k;
+            $('#namaKasir').textContent = k.nama + (k.peran === 'admin' ? ' · admin' : '');
+            var av = $('#avatarKasir'); if (av) av.textContent = inisial(k.nama);
+            terapkanHakAkses();
+          }
+          simpan(); tutupDialog();
+          if (pengguna && pengguna.id === k.id && !isAdmin()) { toast('Data kasir disimpan'); buka('kasir'); return; }
+          renderAtur(); toast('Data kasir disimpan');
+        };
+      });
+  }
+
+  function hapusKasir(id) {
+    if (!butuhAdmin('menghapus kasir')) return;
+    var k = D.kasir.find(function (x) { return x.id === id; });
+    if (!k) return;
+    if (pengguna && k.id === pengguna.id) return toast('Tidak bisa menghapus akun yang sedang dipakai');
+    if (k.peran === 'admin' && jumlahAdmin(k.id) < 1) return toast('Tidak bisa menghapus Admin terakhir');
+    if (!confirm('Hapus kasir ' + k.nama + '?')) return;
+    D.kasir = D.kasir.filter(function (x) { return x.id !== id; });
+    simpan(); renderAtur(); toast('Kasir dihapus');
+  }
+
+  function tambahKasir(f) {
+    if (!butuhAdmin('menambah kasir')) return;
+    var nama = f.elements.nama.value.trim();
+    var pin = (f.elements.pin.value || '').trim();
+    var peran = f.elements.peran.value === 'admin' ? 'admin' : 'kasir';
+    if (!nama) return toast('Nama wajib diisi');
+    if (!pinValid(pin)) return toast('PIN harus 4 angka');
+    if (pinDipakai(pin)) return toast('PIN ini sudah dipakai kasir lain. Pilih PIN yang berbeda.');
+    D.kasir.push({ id: uid(), nama: nama, pin: pin, peran: peran });
+    simpan(); f.reset(); renderAtur(); toast('Kasir ditambahkan');
   }
 
   function eksporProdukCSV() {
@@ -1019,9 +1138,10 @@
     });
 
     $('#cariKelola').oninput = renderKelola;
-    $('#btnTambahProduk').onclick = function () { formProduk(null); };
-    $('#btnKategori').onclick = formKategori;
+    $('#btnTambahProduk').onclick = function () { if (butuhAdmin('mengubah produk')) formProduk(null); };
+    $('#btnKategori').onclick = function () { if (butuhAdmin('mengubah kategori')) formKategori(); };
     $('#tabelProduk').onclick = function (e) {
+      if (!butuhAdmin('mengubah produk')) return;
       var ed = e.target.closest('[data-edit]'), st = e.target.closest('[data-stok]');
       if (ed) formProduk(D.produk.find(function (p) { return p.id === ed.dataset.edit; }));
       if (st) { var p = D.produk.find(function (x) { return x.id === st.dataset.stok; }); var n = parseInt(prompt('Tambah stok ' + p.nama + ' sebanyak:', '10'), 10); if (n) { p.stok = Math.max(0, p.stok + n); simpan(); renderKelola(); toast('Stok jadi ' + p.stok); } }
@@ -1032,7 +1152,9 @@
     $('#daftarTrx').onclick = function (e) {
       var c = e.target.closest('[data-cetak]'), h = e.target.closest('[data-hapus]');
       if (c) cetak(D.transaksi.find(function (x) { return x.id === c.dataset.cetak; }));
-      if (h && confirm('Batalkan transaksi ini? Stok akan dikembalikan.')) {
+      if (h) {
+        if (!butuhAdmin('membatalkan transaksi')) return;
+        if (!confirm('Batalkan transaksi ini? Stok akan dikembalikan.')) return;
         var x = D.transaksi.find(function (t) { return t.id === h.dataset.hapus; });
         x.items.forEach(function (i) { var p = D.produk.find(function (q) { return q.id === i.pid; }); if (p) p.stok += i.qty; });
         D.transaksi = D.transaksi.filter(function (t) { return t !== x; }); simpan(); renderRiwayat(); toast('Transaksi dibatalkan');
@@ -1043,29 +1165,30 @@
     $('#tglLaporan').onchange = renderLaporan;
 
     $('#formToko').onsubmit = function (e) {
-      e.preventDefault(); var f = e.target;
+      e.preventDefault(); if (!butuhAdmin('mengubah profil toko')) return; var f = e.target;
       var namaLama = D.toko.nama;
       ['nama', 'alamat', 'telp', 'footer', 'rekening'].forEach(function (k) { D.toko[k] = f.elements[k].value.trim(); });
       if (D.toko.nama !== namaLama) D.toko.namaDariTema = false;
       simpan(); $('#namaTokoNav').textContent = D.toko.nama; toast('Profil toko disimpan');
     };
-    $('#formKasir').onsubmit = function (e) {
-      e.preventDefault(); var f = e.target;
-      D.kasir.push({ id: uid(), nama: f.elements.nama.value.trim(), pin: f.elements.pin.value, peran: f.elements.peran.value });
-      simpan(); f.reset(); renderAtur(); toast('Kasir ditambahkan');
+    $('#formKasir').onsubmit = function (e) { e.preventDefault(); tambahKasir(e.target); };
+    $('#daftarKasirAtur').onclick = function (e) {
+      var ed = e.target.closest('[data-ek]'), hapus = e.target.closest('[data-hk]');
+      if (ed) formEditKasir(D.kasir.find(function (k) { return k.id === ed.dataset.ek; }));
+      if (hapus) hapusKasir(hapus.dataset.hk);
     };
-    $('#daftarKasirAtur').onclick = function (e) { var b = e.target.closest('[data-hk]'); if (b && confirm('Hapus kasir ini?')) { D.kasir = D.kasir.filter(function (k) { return k.id !== b.dataset.hk; }); simpan(); renderAtur(); } };
-    $('#btnBackup').onclick = function () { unduh('backup-kasir-' + tglKey(new Date()) + '.json', JSON.stringify(D, null, 1), 'application/json'); };
+    $('#btnBackup').onclick = function () { if (butuhAdmin('mengunduh backup')) unduh('backup-kasir-' + tglKey(new Date()) + '.json', JSON.stringify(D, null, 1), 'application/json'); };
     $('#fileBackup').onchange = function () {
+      if (!butuhAdmin('memulihkan backup')) { this.value = ''; return; }
       bacaFile(this, function (t) {
-        try { var x = JSON.parse(t); if (!x.produk || !x.kasir) throw 0; if (confirm('Timpa semua data dengan backup ini?')) { D = x; simpan(); toast('Backup dipulihkan'); tampilMasuk(); } }
+        try { var x = JSON.parse(t); if (!x.produk || !x.kasir) throw 0; if (confirm('Timpa semua data dengan backup ini?')) { D = x; muat(D); simpan(); toast('Backup dipulihkan'); tampilMasuk(); } }
         catch (er) { toast('File backup tidak valid'); }
       });
     };
-    $('#btnEksporProduk').onclick = eksporProdukCSV;
-    $('#fileCsv').onchange = function () { bacaFile(this, function (t) { toast(imporProdukCSV(t) + ' produk diimpor'); }); };
-    $('#btnContoh').onclick = function () { if (confirm('Ganti data dengan data contoh?')) { D = dataContoh(); simpan(); tampilMasuk(); } };
-    $('#btnReset').onclick = function () { if (confirm('Yakin hapus SEMUA data? Backup dulu ya.')) { D = dataKosong(); simpan(); toast('Data dikosongkan. PIN admin: 1234'); tampilMasuk(); } };
+    $('#btnEksporProduk').onclick = function () { if (butuhAdmin('mengekspor produk')) eksporProdukCSV(); };
+    $('#fileCsv').onchange = function () { if (!butuhAdmin('mengimpor produk')) { this.value = ''; return; } bacaFile(this, function (t) { toast(imporProdukCSV(t) + ' produk diimpor'); }); };
+    $('#btnContoh').onclick = function () { if (butuhAdmin('mengisi data contoh') && confirm('Ganti data dengan data contoh?')) { D = dataContoh(); simpan(); tampilMasuk(); } };
+    $('#btnReset').onclick = function () { if (butuhAdmin('menghapus semua data') && confirm('Yakin hapus SEMUA data? Backup dulu ya.')) { D = dataKosong(); simpan(); toast('Data dikosongkan. PIN admin: 1234'); tampilMasuk(); } };
   }
 
   function mulaiSesiAkun(u) {
@@ -1105,5 +1228,22 @@
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
 
   // untuk pengujian
-  window.__kasir = { hitung: hitung, ringkasan: ringkasan, parseCSV: parseCSV, imporProdukCSV: imporProdukCSV, data: function () { return D; }, tema: terapkanTema, keranjang: function () { return keranjang; }, tambah: tambahKeKeranjang, selesaikan: selesaikan };
+  window.__kasir = {
+    hitung: hitung, ringkasan: ringkasan, parseCSV: parseCSV, imporProdukCSV: imporProdukCSV,
+    data: function () { return D; }, tema: terapkanTema, keranjang: function () { return keranjang; },
+    tambah: tambahKeKeranjang, selesaikan: selesaikan,
+    pengguna: function () { return pengguna; }, isAdmin: isAdmin, buka: buka,
+    mulaiUji: function (peran) {
+      muat(dataContoh());
+      var k = D.kasir.find(function (x) { return x.peran === (peran || 'admin'); }) || D.kasir[0];
+      $('#layarAkun').hidden = true;
+      masuk(k);
+      return { id: k.id, nama: k.nama, peran: k.peran, pin: k.pin };
+    },
+    keluarKasir: function () { pengguna = null; keranjang = []; try { sessionStorage.removeItem('kasir-sesi'); } catch (e) {} tampilMasuk(); },
+    cobaPin: function (nama, pin) {
+      var k = D.kasir.find(function (x) { return x.nama === nama; });
+      return !!(k && String(k.pin) === String(pin));
+    }
+  };
 })();
