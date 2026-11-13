@@ -68,7 +68,8 @@ code{background:var(--latar);padding:1px 5px;border-radius:5px;font-size:12.5px}
 .tombol:active{transform:scale(.97)}
 .tombol.utama{background:var(--utama);border-color:var(--utama);color:var(--isi-utama);box-shadow:0 8px 18px -10px var(--utama)}
 .tombol.utama:hover{background:var(--utama-tua);border-color:var(--utama-tua)}
-.tombol.utama:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+.tombol:disabled{opacity:.55;cursor:progress;box-shadow:none;transform:none}
+.tombol.utama:disabled{opacity:.4;cursor:progress;box-shadow:none;transform:none}
 .tombol.bahaya{color:var(--bahaya)}
 .tombol.bahaya:hover{border-color:var(--bahaya);background:var(--bahaya-muda)}
 .tombol.besar{width:100%;min-height:56px;padding:14px 18px;font-size:16px;border-radius:var(--radius);justify-content:space-between}
@@ -76,7 +77,7 @@ code{background:var(--latar);padding:1px 5px;border-radius:5px;font-size:12.5px}
 .tautan:hover{background:var(--utama-muda)}
 .tautan:disabled{opacity:.4;cursor:not-allowed}
 .tautan svg{width:17px;height:17px}
-input[type=search],input[type=date],input[type=number],input:not([type]),input[type=text],select{min-height:44px;padding:10px 13px;border:1px solid var(--garis-kuat);border-radius:var(--r-kecil);background:var(--kartu);min-width:0;transition:border-color .2s,box-shadow .2s}
+input[type=search],input[type=date],input[type=number],input:not([type]),input[type=text],input[type=email],input[type=password],select{min-height:44px;padding:10px 13px;border:1px solid var(--garis-kuat);border-radius:var(--r-kecil);background:var(--kartu);min-width:0;transition:border-color .2s,box-shadow .2s}
 input:focus,select:focus{outline:none;border-color:var(--utama);box-shadow:0 0 0 3px color-mix(in srgb,var(--utama) 22%,transparent)}
 button:focus-visible,label:focus-within:has(input[type=radio]){outline:2px solid var(--utama);outline-offset:2px}
 [data-mode="gelap"] button:focus-visible{outline-color:var(--utama-teks)}
@@ -90,8 +91,26 @@ button:focus-visible,label:focus-within:has(input[type=radio]){outline:2px solid
 .masuk-ilus .thumb{aspect-ratio:1;border-radius:var(--r-besar);animation:munculPop .6s var(--pegas) both;animation-delay:calc(var(--i) * 70ms + 100ms)}
 .masuk-slogan{font-size:clamp(22px,2.6vw,30px);font-weight:800;line-height:1.2;letter-spacing:-.02em;margin:0;position:relative;z-index:1}
 .masuk-form{display:grid;place-items:center;padding:32px 24px}
-.masuk-kartu{width:min(360px,100%);text-align:center;animation:naik .5s var(--halus) both}
+.masuk-kartu{width:min(400px,100%);text-align:center;animation:naik .5s var(--halus) both}
 .masuk-kartu h1{font-size:26px;font-weight:800;margin:0 0 6px}
+.tab-akun{display:flex;background:var(--latar);border:1px solid var(--garis);border-radius:999px;padding:4px;margin:16px 0 0;gap:2px}
+.tab-akun button{flex:1;border:0;background:none;min-height:40px;padding:7px 12px;border-radius:999px;font-weight:700;color:var(--teks);transition:background-color .2s,color .2s}
+.tab-akun button.aktif{background:var(--utama);color:var(--isi-utama)}
+.tab-akun button:disabled{opacity:.55;cursor:progress}
+.form-akun{text-align:left;margin-top:16px}
+.form-akun .tombol.utama{width:100%;justify-content:center;margin-top:4px}
+.akun-aksi-atas{display:flex;justify-content:flex-end;margin-top:-4px}
+.akun-aksi-atas .tautan{padding:4px 6px;min-height:32px}
+.panel-verifikasi{margin-top:16px;padding:14px 16px;border:1px solid var(--garis);border-radius:var(--radius);background:var(--utama-muda);text-align:left}
+.panel-verifikasi p{margin:0 0 12px}
+.panel-verifikasi .tombol{width:100%;justify-content:center}
+.pemisah-atau{display:flex;align-items:center;gap:12px;margin:18px 0 4px;color:var(--redup);font-size:13px;font-weight:700}
+.pemisah-atau::before,.pemisah-atau::after{content:"";flex:1;height:1px;background:var(--garis-kuat)}
+.tombol-google{width:100%;margin-top:12px;background:#fff;color:#1f1f1f;border-color:#dadce0;justify-content:center}
+.tombol-google:hover{background:#f8f9fa}
+.tombol-google:disabled{opacity:.6;cursor:progress}
+.akun-pesan{min-height:1.5em;margin-top:12px}
+.akun-pesan.salah{color:var(--bahaya-teks)}
 .pilih-kasir{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:20px 0}
 .pilih-kasir button{min-height:44px;padding:8px 18px;border-radius:999px;border:1px solid var(--garis-kuat);background:var(--kartu);font-weight:700;transition:all .2s}
 .pilih-kasir button.aktif{background:var(--utama);color:var(--isi-utama);border-color:var(--utama)}

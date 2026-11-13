@@ -75,7 +75,8 @@
     if (!D || !D.produk) { D = dataContoh(); simpan(); }
     // Migrasi data lama: nama bawaan lama dianggap belum diubah pengguna.
     if (D.toko.namaDariTema === undefined) D.toko.namaDariTema = D.toko.nama === 'Kopi Senja' || D.toko.nama === 'Toko Saya';
-    if (D.toko.namaDariTema) D.toko.nama = NAMA_TEMA;
+    if (D.toko.namaDariTema && akun && akun.namaToko) { D.toko.nama = akun.namaToko; D.toko.namaDariTema = false; }
+    else if (D.toko.namaDariTema) D.toko.nama = NAMA_TEMA;
   }
 
   // ---------- Tema (customizer Maliki Studio, lihat tema.css & tema.js) ----------
@@ -197,45 +198,260 @@
   function simpanLokal() { try { localStorage.setItem(kunciLokal(), JSON.stringify(D)); } catch (e) { toast('Gagal menyimpan: memori penuh'); } }
   function bacaLokal() { try { return JSON.parse(localStorage.getItem(kunciLokal())); } catch (e) { return null; } }
 
-  // ---------- Akun Google + sinkron cloud (Supabase) ----------
+  // ---------- Akun (email + Google) + sinkron cloud (Supabase) ----------
   // Data tiap akun disimpan di tabel toko_data (RLS: hanya pemilik). localStorage = cache offline per akun.
   var CFG = window.KASIRKU_CONFIG || {};
   var AWAN = null, akun = null, sTimer = null, sedangSinkron = false, perluSinkron = false, terakhirSinkron = null;
   var KUNCI_AKUN = 'kasirku-akun', KUNCI_TUNDA = 'kasirku-tunda';
+  var sedangPulihSandi = false, sesiAkunSiap = false, bootSelesai = false, emailVerifikasi = '', kirimUlangSampai = 0, kirimUlangTimer = null, sibukAuth = false;
   function kunciLokal() { return akun ? KUNCI + ':' + akun.id : KUNCI; }
   function buatAwan() {
     if (AWAN) return AWAN;
     if (!window.supabase || !CFG.supabaseUrl || !CFG.supabaseKey) return null;
     AWAN = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    AWAN.auth.onAuthStateChange(function (event, session) {
+      if (event === 'PASSWORD_RECOVERY') {
+        sedangPulihSandi = true;
+        tampilPulihSandi();
+        bersihkanUrl();
+        return;
+      }
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && session.user && !sedangPulihSandi) {
+        bersihkanUrl();
+        if (sesiAkunSiap && akun && akun.id === session.user.id) return;
+        if (bootSelesai) mulaiSesiAkun(session.user);
+      }
+    });
     return AWAN;
   }
   function akunTersimpan() { try { return JSON.parse(localStorage.getItem(KUNCI_AKUN)); } catch (e) { return null; } }
   function setAkun(u) {
-    akun = u ? { id: u.id, email: u.email || '', nama: (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email || '' } : null;
+    var meta = (u && u.user_metadata) || {};
+    akun = u ? { id: u.id, email: u.email || '', nama: meta.full_name || meta.name || meta.nama_toko || u.nama || u.email || '', namaToko: meta.nama_toko || u.namaToko || '' } : null;
     try { if (akun) localStorage.setItem(KUNCI_AKUN, JSON.stringify(akun)); else localStorage.removeItem(KUNCI_AKUN); } catch (e) {}
   }
   function tandaiTunda(v) { perluSinkron = v; try { if (v) localStorage.setItem(KUNCI_TUNDA, '1'); else localStorage.removeItem(KUNCI_TUNDA); } catch (e) {} tampilStatusAwan(); }
   function bersihkanUrl() {
-    if (/[?&#](code|error|error_description|access_token)=/.test(location.href)) history.replaceState(null, '', location.pathname);
+    if (/[?&#](code|error|error_description|access_token|refresh_token|type)=/.test(location.href)) history.replaceState(null, '', location.pathname);
   }
-  function pesanAkun(t) { var p = $('#akunPesan'); if (p) p.textContent = t || ''; }
+  function pesanAkun(t, salah) {
+    var p = $('#akunPesan'); if (!p) return;
+    p.textContent = t || '';
+    p.classList.toggle('salah', !!salah && !!t);
+  }
+  function pesanAuth(err) {
+    var t = ((err && (err.message || err.error_description || err.msg)) || '') + ' ' + ((err && (err.code || err.error)) || '');
+    t = t.toLowerCase();
+    if (/email not confirmed|email_not_confirmed/.test(t)) return 'Email belum diverifikasi. Cek kotak masuk (termasuk folder Spam), lalu klik link verifikasinya.';
+    if (/invalid login credentials|invalid_credentials|invalid_grant/.test(t)) return 'Email atau password salah.';
+    if (/user already registered|already been registered|already registered|email_exists/.test(t)) return 'Email ini sudah terdaftar. Silakan masuk, atau pakai "Lupa password?" jika lupa sandinya.';
+    if (/password should be at least|weak password|weak_password|password is known|at least 8/.test(t)) return 'Password terlalu lemah. Pakai minimal 8 karakter yang tidak mudah ditebak.';
+    if (/rate limit|too many requests|over_email_send_rate_limit|email rate limit exceeded|429/.test(t)) return 'Terlalu banyak percobaan. Tunggu sebentar, lalu coba lagi.';
+    if (/signup is disabled|signups not allowed/.test(t)) return 'Pendaftaran sedang ditutup. Coba masuk, atau hubungi admin.';
+    if (/same password|should be different/.test(t)) return 'Password baru harus berbeda dari yang lama.';
+    if (/user not found/.test(t)) return 'Akun tidak ditemukan. Daftar dulu ya.';
+    if (/network|failed to fetch|fetch/.test(t) && /typeerror|network/.test(t)) return 'Gagal menghubungi server. Periksa internet lalu coba lagi.';
+    return (err && err.message) ? err.message : 'Terjadi kesalahan. Coba lagi ya.';
+  }
+  function belumVerifikasi(err) {
+    var t = ((err && (err.message || err.error_description || err.code || '')) || '').toLowerCase();
+    return /email not confirmed|email_not_confirmed/.test(t);
+  }
+  function setSibuk(on) {
+    sibukAuth = !!on;
+    ['btnMasukEmail', 'btnDaftarEmail', 'btnSandiBaru', 'btnGoogle', 'btnLupaSandi', 'tabMasuk', 'tabDaftar'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.disabled = !!on;
+    });
+    updateTombolKirimUlang();
+  }
+  function updateTombolKirimUlang() {
+    var b = $('#btnKirimUlang'); if (!b) return;
+    var sisa = Math.ceil((kirimUlangSampai - Date.now()) / 1000);
+    if (sisa > 0) {
+      b.disabled = true;
+      b.textContent = 'Kirim ulang email verifikasi (' + sisa + ' dtk)';
+      clearTimeout(kirimUlangTimer);
+      kirimUlangTimer = setTimeout(updateTombolKirimUlang, 250);
+    } else {
+      b.disabled = sibukAuth;
+      b.textContent = 'Kirim ulang email verifikasi';
+    }
+  }
+  function pilihTab(nama) {
+    var daftar = nama === 'daftar';
+    var tm = $('#tabMasuk'), td = $('#tabDaftar');
+    if (tm) { tm.classList.toggle('aktif', !daftar); tm.setAttribute('aria-selected', daftar ? 'false' : 'true'); }
+    if (td) { td.classList.toggle('aktif', daftar); td.setAttribute('aria-selected', daftar ? 'true' : 'false'); }
+    var fm = $('#formMasuk'), fd = $('#formDaftar');
+    if (fm) fm.hidden = daftar;
+    if (fd) fd.hidden = !daftar;
+    var j = $('#judulAkun'); if (j) j.textContent = daftar ? 'Daftar ke KasirKU' : 'Masuk ke KasirKU';
+    var pv = $('#panelVerifikasi'); if (pv) pv.hidden = true;
+    var fs = $('#formSandiBaru'); if (fs) fs.hidden = true;
+    tampilBagianGoogle(true);
+    pesanAkun('');
+  }
+  function tampilBagianGoogle(tampil) {
+    var a = $('#pemisahAtau'), b = $('#btnGoogle');
+    if (a) a.hidden = !tampil;
+    if (b) b.hidden = !tampil;
+  }
+  function tampilVerifikasi(teks, tetapForm) {
+    var p = $('#panelVerifikasi'), tv = $('#teksVerifikasi');
+    if (tv) tv.textContent = teks || 'Cek email kamu (termasuk folder Spam) dan klik link verifikasi, lalu masuk.';
+    if (p) p.hidden = false;
+    if (!tetapForm) {
+      var fm = $('#formMasuk'), fd = $('#formDaftar');
+      if (fm) fm.hidden = true;
+      if (fd) fd.hidden = true;
+    }
+    updateTombolKirimUlang();
+  }
+  function tampilPulihSandi() {
+    $('#aplikasi').hidden = true; $('#layarMasuk').hidden = true; $('#layarAkun').hidden = false;
+    var tm = $('#tabAkun'); if (tm) tm.hidden = true;
+    var fm = $('#formMasuk'), fd = $('#formDaftar'), pv = $('#panelVerifikasi'), fs = $('#formSandiBaru');
+    if (fm) fm.hidden = true; if (fd) fd.hidden = true; if (pv) pv.hidden = true; if (fs) fs.hidden = false;
+    var j = $('#judulAkun'); if (j) j.textContent = 'Atur password baru';
+    tampilBagianGoogle(false);
+    pesanAkun('Link reset diterima. Masukkan password baru, lalu simpan.');
+  }
   function tampilAkun(pesan) {
     $('#aplikasi').hidden = true; $('#layarMasuk').hidden = true; $('#layarAkun').hidden = false;
+    if (sedangPulihSandi) { tampilPulihSandi(); return; }
+    var tm = $('#tabAkun'); if (tm) tm.hidden = false;
+    var fs = $('#formSandiBaru'); if (fs) fs.hidden = true;
+    if ($('#formMasuk') && $('#formMasuk').hidden && $('#formDaftar') && $('#formDaftar').hidden && $('#panelVerifikasi') && $('#panelVerifikasi').hidden) pilihTab('masuk');
+    tampilBagianGoogle(true);
     pesanAkun(pesan);
   }
   function masukGoogle() {
     var b = $('#btnGoogle');
-    if (!navigator.onLine) return pesanAkun('Tidak ada internet. Sambungkan internet dulu untuk masuk pertama kali.');
-    if (!buatAwan()) return pesanAkun('Layanan login belum termuat. Periksa internet lalu muat ulang halaman.');
-    b.disabled = true; pesanAkun('Menghubungkan ke Google…');
+    if (!navigator.onLine) return pesanAkun('Tidak ada internet. Sambungkan internet dulu untuk masuk pertama kali.', true);
+    if (!buatAwan()) return pesanAkun('Layanan login belum termuat. Periksa internet lalu muat ulang halaman.', true);
+    setSibuk(true); pesanAkun('Menghubungkan ke Google…');
     fetch(CFG.supabaseUrl + '/auth/v1/settings', { headers: { apikey: CFG.supabaseKey } })
       .then(function (r) { return r.json(); })
       .then(function (st) {
-        if (!st || !st.external || !st.external.google) { b.disabled = false; pesanAkun('Login Google sedang disiapkan oleh admin. Coba lagi sebentar lagi ya.'); return; }
+        if (!st || !st.external || !st.external.google) { setSibuk(false); pesanAkun('Login Google sedang disiapkan oleh admin. Coba lagi sebentar lagi ya.'); return; }
         return AWAN.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/', queryParams: { prompt: 'select_account' } } })
           .then(function (res) { if (res.error) throw res.error; });
       })
-      .catch(function () { b.disabled = false; pesanAkun('Gagal menghubungi server login. Coba lagi ya.'); });
+      .catch(function () { setSibuk(false); pesanAkun('Gagal menghubungi server login. Coba lagi ya.', true); });
+  }
+  function emailDariForm() {
+    var a = ($('#emailMasuk') && $('#emailMasuk').value.trim()) || ($('#emailDaftar') && $('#emailDaftar').value.trim()) || emailVerifikasi || (akun && akun.email) || '';
+    return a;
+  }
+  function masukEmail(e) {
+    e.preventDefault();
+    var email = $('#emailMasuk').value.trim();
+    var sandi = $('#sandiMasuk').value;
+    if (!email || !sandi) return pesanAkun('Isi email dan password dulu ya.', true);
+    if (!navigator.onLine) return pesanAkun('Tidak ada internet. Sambungkan internet dulu untuk masuk.', true);
+    if (!buatAwan()) return pesanAkun('Layanan login belum termuat. Periksa internet lalu muat ulang halaman.', true);
+    setSibuk(true); pesanAkun('Sedang masuk…');
+    AWAN.auth.signInWithPassword({ email: email, password: sandi })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        setSibuk(false);
+        var u = res.data && res.data.user;
+        if (u) mulaiSesiAkun(u);
+        else pesanAkun('Masuk berhasil, tapi sesi belum termuat. Muat ulang halaman ya.', true);
+      })
+      .catch(function (err) {
+        setSibuk(false);
+        emailVerifikasi = email;
+        if (belumVerifikasi(err)) { pesanAkun(pesanAuth(err), true); tampilVerifikasi(pesanAuth(err), true); return; }
+        pesanAkun(pesanAuth(err), true);
+      });
+  }
+  function daftarEmail(e) {
+    e.preventDefault();
+    var email = $('#emailDaftar').value.trim();
+    var sandi = $('#sandiDaftar').value;
+    var sandi2 = $('#sandiDaftar2').value;
+    var namaToko = $('#namaTokoDaftar').value.trim();
+    if (sandi.length < 8) return pesanAkun('Password minimal 8 karakter.', true);
+    if (sandi !== sandi2) return pesanAkun('Password dan ulangi password belum sama.', true);
+    if (!navigator.onLine) return pesanAkun('Tidak ada internet. Sambungkan internet dulu untuk daftar.', true);
+    if (!buatAwan()) return pesanAkun('Layanan pendaftaran belum termuat. Periksa internet lalu muat ulang halaman.', true);
+    setSibuk(true); pesanAkun('Mendaftarkan akun…');
+    AWAN.auth.signUp({
+      email: email,
+      password: sandi,
+      options: { emailRedirectTo: location.origin + '/', data: { nama_toko: namaToko, full_name: namaToko } }
+    }).then(function (res) {
+      setSibuk(false);
+      if (res.error) throw res.error;
+      emailVerifikasi = email;
+      if (res.data && res.data.session && res.data.user) { mulaiSesiAkun(res.data.user); return; }
+      pesanAkun('');
+      tampilVerifikasi('Cek email kamu (termasuk folder Spam) dan klik link verifikasi, lalu masuk.');
+    }).catch(function (err) {
+      setSibuk(false);
+      emailVerifikasi = email;
+      if (belumVerifikasi(err)) { pesanAkun(pesanAuth(err), true); tampilVerifikasi(pesanAuth(err)); return; }
+      pesanAkun(pesanAuth(err), true);
+    });
+  }
+  function kirimUlangVerifikasi() {
+    var email = emailVerifikasi || emailDariForm();
+    if (!email) return pesanAkun('Isi email dulu, lalu kirim ulang verifikasi.', true);
+    if (Date.now() < kirimUlangSampai) return;
+    if (!navigator.onLine) return pesanAkun('Tidak ada internet. Coba lagi saat online.', true);
+    if (!buatAwan()) return pesanAkun('Layanan login belum termuat. Periksa internet lalu muat ulang halaman.', true);
+    setSibuk(true); pesanAkun('Mengirim ulang email verifikasi…');
+    AWAN.auth.resend({ type: 'signup', email: email, options: { emailRedirectTo: location.origin + '/' } })
+      .then(function (res) {
+        setSibuk(false);
+        if (res.error) throw res.error;
+        emailVerifikasi = email;
+        kirimUlangSampai = Date.now() + 60000;
+        updateTombolKirimUlang();
+        pesanAkun('Email verifikasi sudah dikirim ulang. Cek kotak masuk dan folder Spam.');
+      })
+      .catch(function (err) {
+        setSibuk(false);
+        if (/rate limit|over_email_send_rate_limit|email rate limit/i.test((err && err.message) || '')) {
+          kirimUlangSampai = Date.now() + 60000;
+          updateTombolKirimUlang();
+        }
+        pesanAkun(pesanAuth(err), true);
+      });
+  }
+  function lupaSandi() {
+    var email = ($('#emailMasuk') && $('#emailMasuk').value.trim()) || emailDariForm();
+    if (!email) return pesanAkun('Isi email di kolom Masuk dulu, lalu klik "Lupa password?".', true);
+    if (!navigator.onLine) return pesanAkun('Tidak ada internet. Coba lagi saat online.', true);
+    if (!buatAwan()) return pesanAkun('Layanan login belum termuat. Periksa internet lalu muat ulang halaman.', true);
+    setSibuk(true); pesanAkun('Mengirim link reset password…');
+    AWAN.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/' })
+      .then(function (res) {
+        setSibuk(false);
+        if (res.error) throw res.error;
+        pesanAkun('Jika email itu terdaftar, kami sudah kirim link reset password. Cek juga folder Spam.');
+      })
+      .catch(function (err) { setSibuk(false); pesanAkun(pesanAuth(err), true); });
+  }
+  function simpanSandiBaru(e) {
+    e.preventDefault();
+    var sandi = $('#sandiBaru').value, sandi2 = $('#sandiBaru2').value;
+    if (sandi.length < 8) return pesanAkun('Password minimal 8 karakter.', true);
+    if (sandi !== sandi2) return pesanAkun('Password dan ulangi password belum sama.', true);
+    if (!buatAwan()) return pesanAkun('Layanan login belum termuat. Periksa internet lalu muat ulang halaman.', true);
+    setSibuk(true); pesanAkun('Menyimpan password baru…');
+    AWAN.auth.updateUser({ password: sandi })
+      .then(function (res) {
+        setSibuk(false);
+        if (res.error) throw res.error;
+        sedangPulihSandi = false;
+        pesanAkun('Password berhasil diganti.');
+        var u = res.data && res.data.user;
+        if (u) mulaiSesiAkun(u);
+        else cekSesi().then(function (x) { if (x) mulaiSesiAkun(x); });
+      })
+      .catch(function (err) { setSibuk(false); pesanAkun(pesanAuth(err), true); });
   }
   // Cek sesi: online -> Supabase; offline -> pakai akun terakhir di perangkat ini.
   function cekSesi() {
@@ -245,6 +461,7 @@
     if (err) setTimeout(function () { pesanAkun('Login gagal: ' + decodeURIComponent(err[1].replace(/\+/g, ' '))); }, 0);
     return AWAN.auth.getSession().then(function (res) {
       var ses = res && res.data && res.data.session;
+      if (sedangPulihSandi) return null;
       if (ses && ses.user) { setAkun(ses.user); return akun; }
       return navigator.onLine ? null : tersimpan;
     }).catch(function () { return navigator.onLine ? null : tersimpan; });
@@ -323,8 +540,19 @@
     if (confirm('Keluar dari akun ' + (akun ? akun.email : '') + '?')) lanjut();
   }
   function ikatAkun() {
+    buatAwan();
     $('#btnGoogle').onclick = masukGoogle;
     $('#btnKeluarAkun').onclick = keluarAkun;
+    var tm = $('#tabMasuk'), td = $('#tabDaftar');
+    if (tm) tm.onclick = function () { pilihTab('masuk'); };
+    if (td) td.onclick = function () { pilihTab('daftar'); };
+    var fm = $('#formMasuk'), fd = $('#formDaftar'), fs = $('#formSandiBaru');
+    if (fm) fm.onsubmit = masukEmail;
+    if (fd) fd.onsubmit = daftarEmail;
+    if (fs) fs.onsubmit = simpanSandiBaru;
+    var bl = $('#btnLupaSandi'), bk = $('#btnKirimUlang');
+    if (bl) bl.onclick = lupaSandi;
+    if (bk) bk.onclick = kirimUlangVerifikasi;
     window.addEventListener('online', function () { tampilStatusAwan(); if (akun) { if (!AWAN) { location.reload(); return; } sinkron(); } });
     window.addEventListener('offline', function () { tampilStatusAwan(); });
     document.addEventListener('visibilitychange', function () {
@@ -840,22 +1068,39 @@
     $('#btnReset').onclick = function () { if (confirm('Yakin hapus SEMUA data? Backup dulu ya.')) { D = dataKosong(); simpan(); toast('Data dikosongkan. PIN admin: 1234'); tampilMasuk(); } };
   }
 
-  // ---------- Mulai ----------
-  ikatEvent(); ikatAkun();
-  var demo = /[?&]demo\b/.test(location.search);
-  cekSesi().then(function (u) {
-    bersihkanUrl();
-    if (!u) { tampilAkun($('#akunPesan').textContent); return; }
-    akun = u; $('#layarAkun').hidden = true;
-    var ae = $('#akunEmail'); if (ae) ae.textContent = u.email || u.nama || '-';
+  function mulaiSesiAkun(u) {
+    if (sedangPulihSandi) return;
+    if (!u) return;
+    if (sesiAkunSiap && akun && u && akun.id === u.id && D) return;
+    setAkun(u);
+    $('#layarAkun').hidden = true;
+    var ae = $('#akunEmail'); if (ae) ae.textContent = (akun && (akun.email || akun.nama)) || '-';
     return muatDataAkun().then(function (data) {
+      sesiAkunSiap = true;
       muat(data); simpanLokal(); pasangLogo(); tampilStatusAwan();
       if (perluSinkron) sinkron();
       var sesi = null; try { sesi = sessionStorage.getItem('kasir-sesi'); } catch (e) {}
       var k = sesi && D.kasir.find(function (x) { return x.id === sesi; });
       if (k) masuk(k); else if (demo) { masuk(D.kasir[0]); [0, 0, 3, 8].forEach(function (i, n) { var p = D.produk[i]; if (p) tambahKeKeranjang(p, p.varian[n % p.varian.length]); }); } else tampilMasuk();
-    });
-  }).catch(function () { tampilAkun('Terjadi kesalahan saat memuat. Muat ulang halaman ya.'); });
+    }).catch(function () { tampilAkun('Terjadi kesalahan saat memuat. Muat ulang halaman ya.', true); });
+  }
+
+  // ---------- Mulai ----------
+  ikatEvent(); ikatAkun();
+  var demo = /[?&]demo\b/.test(location.search);
+  var hashAwal = location.hash + location.search;
+  cekSesi().then(function (u) {
+    bootSelesai = true;
+    if (!sedangPulihSandi) bersihkanUrl();
+    if (sedangPulihSandi) return;
+    if (!u) {
+      var pesanAwal = $('#akunPesan') ? $('#akunPesan').textContent : '';
+      if (/type=signup|type=email|type=magiclink/.test(hashAwal)) pesanAwal = 'Email sudah diverifikasi. Silakan masuk.';
+      tampilAkun(pesanAwal);
+      return;
+    }
+    return mulaiSesiAkun(u);
+  }).catch(function () { tampilAkun('Terjadi kesalahan saat memuat. Muat ulang halaman ya.', true); });
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
 
