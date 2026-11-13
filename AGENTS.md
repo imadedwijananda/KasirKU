@@ -3,6 +3,7 @@ Panduan lengkap: `.claude/skills/ubah-kasir-umkm/SKILL.md` (baca dulu sebelum me
 
 - Statis: `index.html`, `style.css`, `app.js` (satu IIFE), `sw.js` (offline), tanpa build tool.
 - Tema: `tema.css` (`--tema-utama`, `--tema-aksen`, `--tema-radius`, `--tema-font`) & `tema.js` (`TEMA.nama`, `TEMA.mode`). Warna lain diturunkan via `color-mix` di `style.css`; mode gelap di `[data-mode="gelap"]`.
+- Akun: login Google via Supabase (`config.js`, tabel `toko_data` dengan RLS per `user_id`). Cache offline per akun di localStorage `kasir-umkm-v1:<user_id>`, sinkron last-write-wins (`D._waktu` vs `updated_at`). Jangan cache API Supabase di `sw.js`.
 - Data: localStorage `kasir-umkm-v1`; skema di `dataKosong()`/`dataContoh()`; field baru = migrasi di `muat()`, jangan reset data pengguna.
 - Halaman: `.nav[data-hal]` + `section#hal-…` + `buka()`. Ekspor/impor CSV di `eksporProdukCSV`/`imporProdukCSV`.
 - Berkas baru → `sw.js` (`BERKAS`, naikkan `CACHE`) dan `meta.json` (`berkas`).

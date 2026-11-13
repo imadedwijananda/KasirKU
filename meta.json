@@ -8,7 +8,8 @@
     "JavaScript",
     "PWA",
     "Service Worker",
-    "localStorage"
+    "localStorage",
+    "Supabase"
   ],
   "kategori": "Aplikasi Web",
   "tier": "premium",
@@ -21,7 +22,8 @@
     "Laporan harian/bulanan & produk terlaris",
     "Ekspor/impor CSV dan backup JSON",
     "Multi-kasir dengan PIN lokal",
-    "Bisa di-install & jalan offline (PWA)"
+    "Bisa di-install & jalan offline (PWA)",
+    "Login Google, data per akun tersinkron ke cloud (Supabase)"
   ],
   "cara": [
     "Unggah folder ke hosting HTTPS (GitHub Pages/Netlify)",
@@ -41,6 +43,7 @@
     "index.html",
     "style.css",
     "app.js",
+    "config.js",
     "tema.css",
     "tema.js",
     "sw.js",
