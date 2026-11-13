@@ -19,8 +19,8 @@
   --nav-teks:var(--tema-nav-teks,#fff); --nav-redup:color-mix(in srgb,var(--nav-teks) 70%,var(--nav)); --nav-garis:color-mix(in srgb,var(--nav-teks) 12%,var(--nav));
   --isi-utama:var(--tema-utama-teks,#fff);
   --radius:var(--tema-radius,16px); --r-kecil:calc(var(--radius) * .7); --r-besar:calc(var(--radius) + 8px);
-  --bayang:0 1px 2px rgba(23,32,26,.04),0 6px 20px -8px rgba(23,32,26,.12);
-  --bayang-tinggi:0 2px 4px rgba(23,32,26,.05),0 18px 40px -12px rgba(23,32,26,.22);
+  --bayang:0 1px 2px rgba(18,35,63,.04),0 6px 20px -8px rgba(18,35,63,.12);
+  --bayang-tinggi:0 2px 4px rgba(18,35,63,.05),0 18px 40px -12px rgba(18,35,63,.22);
   --font:var(--tema-font,"DM Sans"),system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --pegas:cubic-bezier(.22,1,.36,1); --halus:cubic-bezier(.2,.7,.2,1);
   /* nada latar ilustrasi: semua dari tema */
@@ -31,7 +31,7 @@
   color-scheme:light;
 }
 [data-mode="gelap"]{
-  --latar:#0e1210; --kartu:#171c19; --teks:#e9eee9; --nav:#0b100d;
+  --latar:#0f0b18; --kartu:#1a1527; --teks:#ece9f3; --nav:#0b0814;
   --utama-tua:color-mix(in srgb,var(--utama) 60%,#fff);
   --utama-muda:color-mix(in srgb,var(--utama) 26%,var(--kartu));
   --utama-teks:color-mix(in srgb,var(--utama) 35%,#fff);
@@ -39,7 +39,7 @@
   --aksen-muda:color-mix(in srgb,var(--aksen) 20%,var(--kartu));
   --bahaya:#fb923c; --bahaya-muda:#3a1a10; --bahaya-teks:#fdba8c;
   --nav-teks:var(--tema-nav-teks,#fff);
-  --kepala-tabel:#1c221e;
+  --kepala-tabel:#221c31;
   --bayang:0 1px 2px rgba(0,0,0,.3),0 6px 20px -8px rgba(0,0,0,.5);
   --bayang-tinggi:0 18px 40px -12px rgba(0,0,0,.7);
   --nada0:color-mix(in srgb,var(--aksen) 18%,var(--kartu));
@@ -277,7 +277,7 @@ main{overflow:auto;height:100%}
 /* ===== dialog ===== */
 dialog{border:0;background:var(--kartu);border-radius:var(--r-besar);padding:0;width:min(480px,calc(100% - 24px));box-shadow:0 30px 80px -20px rgba(0,0,0,.45);color:var(--teks)}
 dialog[open]{animation:dlgMasuk .32s var(--pegas)}
-dialog::backdrop{background:rgba(12,20,15,.5);backdrop-filter:blur(3px)}
+dialog::backdrop{background:rgba(18,12,32,.5);backdrop-filter:blur(3px)}
 dialog[open]::backdrop{animation:pudar .25s ease}
 @keyframes dlgMasuk{from{opacity:0;transform:translateY(16px) scale(.97)}}
 @keyframes pudar{from{opacity:0}}
