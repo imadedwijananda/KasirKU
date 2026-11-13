@@ -1,5 +1,5 @@
 /* Service worker: simpan semua berkas agar aplikasi jalan tanpa internet. */
-var CACHE = 'kasir-umkm-v7';
+var CACHE = 'kasir-umkm-v8';
 var SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js';
 var BERKAS = ['./', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './ikon.svg', './qris.svg', './tema.css', './tema.js', './logo.svg', './produk-contoh.svg', SUPABASE_JS];
 
