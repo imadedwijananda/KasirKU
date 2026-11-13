@@ -1,0 +1,29 @@
+name: Sync KasirKU icons
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/icons-b64.json
+      - scripts/decode-icons.py
+      - .github/workflows/sync-icons.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode icons
+        run: python3 scripts/decode-icons.py
+      - name: Commit icon files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add favicon.ico icons/*.png
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan ikon"
+            exit 0
+          fi
+          git commit -m "Tambah ikon PWA KasirKU (png dan ico)"
+          git push
