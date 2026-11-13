@@ -5,7 +5,7 @@
 
   // ---------- KONFIG gambar: ganti logo/foto cukup di sini (atau timpa berkas di img/) ----------
   var KONFIG = {
-    logo: 'img/logo.svg',                // logo toko: sidebar, layar masuk, struk. '' = pakai ikon bawaan
+    logo: '',                            // logo toko: sidebar, layar masuk, struk. '' = pakai ikon bawaan
     fotoContoh: 'img/produk-contoh.svg', // placeholder foto produk (rasio 1:1)
     fotoProduk: {}                       // foto produk contoh per nama, mis. { 'Mie Goreng': 'img/mie.jpg' }
   };
@@ -1208,8 +1208,88 @@
     }).catch(function () { tampilAkun('Terjadi kesalahan saat memuat. Muat ulang halaman ya.', true); });
   }
 
+
+
+  // ---------- Pasang aplikasi (PWA) ----------
+  var KUNCI_PASANG = 'kasirku-pasang-nanti';
+  var pasangTertunda = null;
+  function modeSendiri() {
+    return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  }
+  function isIOSSafari() {
+    var ua = navigator.userAgent || '';
+    var ios = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var webkit = /WebKit/.test(ua);
+    var lain = /CriOS|FxiOS|EdgiOS|OPiOS|FBIOS|GSA\//.test(ua);
+    return ios && webkit && !lain;
+  }
+  function pasangNantiSampai() {
+    try { return parseInt(localStorage.getItem(KUNCI_PASANG) || '0', 10) || 0; } catch (e) { return 0; }
+  }
+  function setPasangNanti() {
+    try { localStorage.setItem(KUNCI_PASANG, String(Date.now() + 3 * 24 * 60 * 60 * 1000)); } catch (e) {}
+  }
+  function sembunyikanBannerPasang() {
+    var b = $('#bannerPasang'); if (b) b.hidden = true;
+  }
+  function tampilkanBannerPasang(mode) {
+    var b = $('#bannerPasang'), teks = $('#teksBannerPasang'), btn = $('#btnPasang');
+    if (!b) return;
+    if (mode === 'ios') {
+      if (teks) teks.textContent = 'Ketuk ikon Bagikan, lalu pilih “Tambah ke Layar Utama”.';
+      if (btn) btn.hidden = true;
+    } else {
+      if (teks) teks.textContent = 'Akses lebih cepat dari layar utama, bisa dipakai offline.';
+      if (btn) btn.hidden = false;
+    }
+    b.hidden = false;
+  }
+  function tampilkanTombolPasangAkun(tampil) {
+    var b = $('#btnPasangAkun'); if (b) b.hidden = !tampil;
+  }
+  function mintaPasang() {
+    if (!pasangTertunda || typeof pasangTertunda.prompt !== 'function') return;
+    var ev = pasangTertunda;
+    pasangTertunda = null;
+    ev.prompt();
+    var pilihan = ev.userChoice;
+    if (pilihan && typeof pilihan.then === 'function') {
+      pilihan.then(function (r) {
+        sembunyikanBannerPasang();
+        tampilkanTombolPasangAkun(!(r && r.outcome === 'accepted'));
+        if (r && r.outcome === 'accepted') pasangTertunda = null;
+        else pasangTertunda = ev;
+      }).catch(function () { tampilkanTombolPasangAkun(true); pasangTertunda = ev; });
+    } else {
+      sembunyikanBannerPasang();
+    }
+  }
+  function ikatPasang() {
+    if (modeSendiri()) { sembunyikanBannerPasang(); tampilkanTombolPasangAkun(false); return; }
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      pasangTertunda = e;
+      tampilkanTombolPasangAkun(true);
+      if (Date.now() >= pasangNantiSampai()) tampilkanBannerPasang('install');
+    });
+    window.addEventListener('appinstalled', function () {
+      pasangTertunda = null;
+      sembunyikanBannerPasang();
+      tampilkanTombolPasangAkun(false);
+    });
+    var bp = $('#btnPasang'), bn = $('#btnPasangNanti'), ba = $('#btnPasangAkun');
+    if (bp) bp.onclick = mintaPasang;
+    if (bn) bn.onclick = function () { setPasangNanti(); sembunyikanBannerPasang(); };
+    if (ba) ba.onclick = function () {
+      if (pasangTertunda) mintaPasang();
+      else if (isIOSSafari()) tampilkanBannerPasang('ios');
+    };
+    if (isIOSSafari() && Date.now() >= pasangNantiSampai()) tampilkanBannerPasang('ios');
+    if (isIOSSafari()) tampilkanTombolPasangAkun(true);
+  }
+
   // ---------- Mulai ----------
-  ikatEvent(); ikatAkun();
+  ikatEvent(); ikatAkun(); ikatPasang();
   var demo = /[?&]demo\b/.test(location.search);
   var hashAwal = location.hash + location.search;
   cekSesi().then(function (u) {
@@ -1244,6 +1324,15 @@
     cobaPin: function (nama, pin) {
       var k = D.kasir.find(function (x) { return x.nama === nama; });
       return !!(k && String(k.pin) === String(pin));
+    },
+    pasang: {
+      sendiri: modeSendiri,
+      ios: isIOSSafari,
+      tertunda: function () { return !!pasangTertunda; },
+      tampilkan: tampilkanBannerPasang,
+      sembunyikan: sembunyikanBannerPasang,
+      nanti: setPasangNanti,
+      nantiSampai: pasangNantiSampai
     }
   };
 })();
