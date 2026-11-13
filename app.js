@@ -70,8 +70,8 @@
   function semai(s) { return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
 
   var D;
-  function muat() {
-    try { D = JSON.parse(localStorage.getItem(KUNCI)); } catch (e) { D = null; }
+  function muat(sumber) {
+    D = sumber;
     if (!D || !D.produk) { D = dataContoh(); simpan(); }
     // Migrasi data lama: nama bawaan lama dianggap belum diubah pengguna.
     if (D.toko.namaDariTema === undefined) D.toko.namaDariTema = D.toko.nama === 'Kopi Senja' || D.toko.nama === 'Toko Saya';
@@ -189,7 +189,149 @@
   }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-mode'] });
   tandaiBagian(); hitungTeksBagian();
 
-  function simpan() { try { localStorage.setItem(KUNCI, JSON.stringify(D)); } catch (e) { toast('Gagal menyimpan: memori penuh'); } }
+  function simpan() {
+    D._waktu = new Date().toISOString();
+    simpanLokal();
+    jadwalSinkron();
+  }
+  function simpanLokal() { try { localStorage.setItem(kunciLokal(), JSON.stringify(D)); } catch (e) { toast('Gagal menyimpan: memori penuh'); } }
+  function bacaLokal() { try { return JSON.parse(localStorage.getItem(kunciLokal())); } catch (e) { return null; } }
+
+  // ---------- Akun Google + sinkron cloud (Supabase) ----------
+  // Data tiap akun disimpan di tabel toko_data (RLS: hanya pemilik). localStorage = cache offline per akun.
+  var CFG = window.KASIRKU_CONFIG || {};
+  var AWAN = null, akun = null, sTimer = null, sedangSinkron = false, perluSinkron = false, terakhirSinkron = null;
+  var KUNCI_AKUN = 'kasirku-akun', KUNCI_TUNDA = 'kasirku-tunda';
+  function kunciLokal() { return akun ? KUNCI + ':' + akun.id : KUNCI; }
+  function buatAwan() {
+    if (AWAN) return AWAN;
+    if (!window.supabase || !CFG.supabaseUrl || !CFG.supabaseKey) return null;
+    AWAN = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+    return AWAN;
+  }
+  function akunTersimpan() { try { return JSON.parse(localStorage.getItem(KUNCI_AKUN)); } catch (e) { return null; } }
+  function setAkun(u) {
+    akun = u ? { id: u.id, email: u.email || '', nama: (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || u.email || '' } : null;
+    try { if (akun) localStorage.setItem(KUNCI_AKUN, JSON.stringify(akun)); else localStorage.removeItem(KUNCI_AKUN); } catch (e) {}
+  }
+  function tandaiTunda(v) { perluSinkron = v; try { if (v) localStorage.setItem(KUNCI_TUNDA, '1'); else localStorage.removeItem(KUNCI_TUNDA); } catch (e) {} tampilStatusAwan(); }
+  function bersihkanUrl() {
+    if (/[?&#](code|error|error_description|access_token)=/.test(location.href)) history.replaceState(null, '', location.pathname);
+  }
+  function pesanAkun(t) { var p = $('#akunPesan'); if (p) p.textContent = t || ''; }
+  function tampilAkun(pesan) {
+    $('#aplikasi').hidden = true; $('#layarMasuk').hidden = true; $('#layarAkun').hidden = false;
+    pesanAkun(pesan);
+  }
+  function masukGoogle() {
+    var b = $('#btnGoogle');
+    if (!navigator.onLine) return pesanAkun('Tidak ada internet. Sambungkan internet dulu untuk masuk pertama kali.');
+    if (!buatAwan()) return pesanAkun('Layanan login belum termuat. Periksa internet lalu muat ulang halaman.');
+    b.disabled = true; pesanAkun('Menghubungkan ke Google…');
+    fetch(CFG.supabaseUrl + '/auth/v1/settings', { headers: { apikey: CFG.supabaseKey } })
+      .then(function (r) { return r.json(); })
+      .then(function (st) {
+        if (!st || !st.external || !st.external.google) { b.disabled = false; pesanAkun('Login Google sedang disiapkan oleh admin. Coba lagi sebentar lagi ya.'); return; }
+        return AWAN.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/', queryParams: { prompt: 'select_account' } } })
+          .then(function (res) { if (res.error) throw res.error; });
+      })
+      .catch(function () { b.disabled = false; pesanAkun('Gagal menghubungi server login. Coba lagi ya.'); });
+  }
+  // Cek sesi: online -> Supabase; offline -> pakai akun terakhir di perangkat ini.
+  function cekSesi() {
+    var tersimpan = akunTersimpan();
+    if (!buatAwan()) return Promise.resolve(tersimpan);
+    var err = (location.search + location.hash).match(/error_description=([^&]+)/);
+    if (err) setTimeout(function () { pesanAkun('Login gagal: ' + decodeURIComponent(err[1].replace(/\+/g, ' '))); }, 0);
+    return AWAN.auth.getSession().then(function (res) {
+      var ses = res && res.data && res.data.session;
+      if (ses && ses.user) { setAkun(ses.user); return akun; }
+      return navigator.onLine ? null : tersimpan;
+    }).catch(function () { return navigator.onLine ? null : tersimpan; });
+  }
+  function ambilAwan() {
+    return AWAN.from('toko_data').select('data,updated_at').eq('user_id', akun.id).maybeSingle()
+      .then(function (r) { if (r.error) throw r.error; return r.data; });
+  }
+  function kirimAwan() {
+    var waktu = D._waktu || new Date().toISOString();
+    return AWAN.from('toko_data').upsert({ user_id: akun.id, data: D, updated_at: waktu })
+      .then(function (r) { if (r.error) throw r.error; terakhirSinkron = new Date(); });
+  }
+  // Muat data akun: bandingkan cache lokal vs cloud, menang yang updated_at paling baru.
+  function muatDataAkun() {
+    var lokal = bacaLokal();
+    if (!lokal) {
+      // Data lama tanpa akun di perangkat ini (sebelum ada login) bisa dipakai sekali untuk akun ini.
+      var lama = null; try { lama = JSON.parse(localStorage.getItem(KUNCI)); } catch (e) {}
+      if (lama && lama.produk && confirm('Ada data kasir lama di perangkat ini. Pakai data ini untuk akun ' + akun.email + '?')) { lokal = lama; lokal._waktu = lokal._waktu || new Date().toISOString(); try { localStorage.removeItem(KUNCI); } catch (e) {} }
+    }
+    try { perluSinkron = localStorage.getItem(KUNCI_TUNDA) === '1'; } catch (e) {}
+    if (!AWAN || !navigator.onLine) return Promise.resolve(lokal);
+    return ambilAwan().then(function (r) {
+      if (r && r.data && r.data.produk && (!lokal || !lokal._waktu || new Date(r.updated_at) > new Date(lokal._waktu))) {
+        var d = r.data; d._waktu = r.updated_at; perluSinkron = false; return d;
+      }
+      if (lokal) perluSinkron = true; // lokal lebih baru / cloud kosong -> kirim
+      return lokal;
+    }).catch(function () { return lokal; });
+  }
+  function jadwalSinkron() {
+    if (!akun) return;
+    tandaiTunda(true);
+    clearTimeout(sTimer); sTimer = setTimeout(sinkron, 1500);
+  }
+  function sinkron() {
+    if (!akun || !AWAN || !navigator.onLine || sedangSinkron || !perluSinkron) return Promise.resolve();
+    sedangSinkron = true; tampilStatusAwan();
+    return AWAN.from('toko_data').select('updated_at').eq('user_id', akun.id).maybeSingle().then(function (r) {
+      if (r.error) throw r.error;
+      // Ada perubahan lebih baru dari perangkat lain -> ambil versi cloud.
+      if (r.data && D._waktu && new Date(r.data.updated_at) > new Date(D._waktu)) {
+        return ambilAwan().then(function (x) { if (x && x.data && x.data.produk) { D = x.data; D._waktu = x.updated_at; simpanLokal(); terakhirSinkron = new Date(); toast('Data diperbarui dari perangkat lain'); segarkanTampilan(); } });
+      }
+      return kirimAwan();
+    }).then(function () { sedangSinkron = false; tandaiTunda(false); })
+      .catch(function () { sedangSinkron = false; tampilStatusAwan('Gagal sinkron, dicoba lagi otomatis.'); clearTimeout(sTimer); sTimer = setTimeout(sinkron, 15000); });
+  }
+  function segarkanTampilan() {
+    if (!pengguna) { if (!$('#layarMasuk').hidden) tampilMasuk(); return; }
+    var k = D.kasir.find(function (x) { return x.id === pengguna.id; });
+    if (!k) { pengguna = null; tampilMasuk(); return; }
+    var aktif = $('.hal.aktif'); var hal = aktif ? aktif.id.replace('hal-', '') : 'kasir';
+    $('#namaTokoNav').textContent = D.toko.nama; buka(hal);
+  }
+  function tampilStatusAwan(teks) {
+    var el = $('#statusAwan'); if (!el) return;
+    if (teks) { el.textContent = teks; return; }
+    if (!navigator.onLine) el.textContent = perluSinkron ? 'Offline · perubahan disimpan di perangkat, dikirim saat online.' : 'Offline · data tersimpan di perangkat.';
+    else if (sedangSinkron) el.textContent = 'Menyinkronkan…';
+    else if (perluSinkron) el.textContent = 'Menunggu sinkron…';
+    else el.textContent = 'Tersinkron ke cloud' + (terakhirSinkron ? ' · ' + dua(terakhirSinkron.getHours()) + ':' + dua(terakhirSinkron.getMinutes()) : '') + '.';
+  }
+  function keluarAkun() {
+    var lanjut = function () {
+      var id = akun && akun.id;
+      var akhir = function () {
+        try { if (id) localStorage.removeItem(KUNCI + ':' + id); localStorage.removeItem(KUNCI_TUNDA); sessionStorage.removeItem('kasir-sesi'); } catch (e) {}
+        setAkun(null); location.replace(location.pathname);
+      };
+      if (AWAN) AWAN.auth.signOut().then(akhir, akhir); else akhir();
+    };
+    if (perluSinkron && !navigator.onLine) { if (!confirm('Ada perubahan yang belum terkirim ke cloud karena offline. Keluar sekarang akan menghapusnya dari perangkat ini. Lanjut?')) return; lanjut(); return; }
+    if (perluSinkron) { clearTimeout(sTimer); sinkron().then(lanjut, lanjut); return; }
+    if (confirm('Keluar dari akun ' + (akun ? akun.email : '') + '?')) lanjut();
+  }
+  function ikatAkun() {
+    $('#btnGoogle').onclick = masukGoogle;
+    $('#btnKeluarAkun').onclick = keluarAkun;
+    window.addEventListener('online', function () { tampilStatusAwan(); if (akun) { if (!AWAN) { location.reload(); return; } sinkron(); } });
+    window.addEventListener('offline', function () { tampilStatusAwan(); });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'visible' || !akun || !AWAN || !navigator.onLine || perluSinkron) return;
+      ambilAwan().then(function (r) { if (r && r.data && r.data.produk && (!D._waktu || new Date(r.updated_at) > new Date(D._waktu))) { D = r.data; D._waktu = r.updated_at; simpanLokal(); segarkanTampilan(); } }).catch(function () {});
+    });
+  }
 
   // ---------- Utilitas ----------
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -284,7 +426,7 @@
   function isAdmin() { return pengguna && pengguna.peran === 'admin'; }
 
   function tampilMasuk() {
-    $('#aplikasi').hidden = true; $('#layarMasuk').hidden = false;
+    $('#aplikasi').hidden = true; $('#layarAkun').hidden = true; $('#layarMasuk').hidden = false;
     $('#masukToko').textContent = D.toko.nama;
     var mi = $('#masukIlus'); if (mi) mi.innerHTML = D.produk.slice(0, 6).map(function (p, n) { return '<span class="thumb" data-nada="' + nadaDari(p.kategori + p.nama) + '" style="--i:' + n + '">' + ilustrasi(p) + '</span>'; }).join('');
     kasirDipilih = D.kasir[0]; pinBuffer = '';
@@ -307,7 +449,7 @@
   }
   function masuk(k) {
     pengguna = k; try { sessionStorage.setItem('kasir-sesi', k.id); } catch (e) {}
-    $('#layarMasuk').hidden = true; $('#aplikasi').hidden = false;
+    $('#layarMasuk').hidden = true; $('#layarAkun').hidden = true; $('#aplikasi').hidden = false;
     $('#namaKasir').textContent = k.nama + (k.peran === 'admin' ? ' · admin' : '');
     $('#namaTokoNav').textContent = D.toko.nama;
     $$('[data-hal="produk"],[data-hal="atur"]').forEach(function (b) { b.hidden = !isAdmin(); });
@@ -585,6 +727,7 @@
 
   // ---------- Pengaturan ----------
   function renderAtur() {
+    var ae = $('#akunEmail'); if (ae && akun) ae.textContent = akun.email || akun.nama || '-'; tampilStatusAwan();
     var f = $('#formToko');
     ['nama', 'alamat', 'telp', 'footer', 'rekening'].forEach(function (k) { f.elements[k].value = D.toko[k] || ''; });
     $('#daftarKasirAtur').innerHTML = D.kasir.map(function (k) {
@@ -698,10 +841,21 @@
   }
 
   // ---------- Mulai ----------
-  muat(); ikatEvent(); pasangLogo();
-  var sesi = null; try { sesi = sessionStorage.getItem('kasir-sesi'); } catch (e) {}
-  var k = sesi && D.kasir.find(function (x) { return x.id === sesi; });
-  if (k) masuk(k); else if (/[?&]demo\b/.test(location.search)) { masuk(D.kasir[0]); [0, 0, 3, 8].forEach(function (i, n) { var p = D.produk[i]; if (p) tambahKeKeranjang(p, p.varian[n % p.varian.length]); }); } else tampilMasuk();
+  ikatEvent(); ikatAkun();
+  var demo = /[?&]demo\b/.test(location.search);
+  cekSesi().then(function (u) {
+    bersihkanUrl();
+    if (!u) { tampilAkun($('#akunPesan').textContent); return; }
+    akun = u; $('#layarAkun').hidden = true;
+    var ae = $('#akunEmail'); if (ae) ae.textContent = u.email || u.nama || '-';
+    return muatDataAkun().then(function (data) {
+      muat(data); simpanLokal(); pasangLogo(); tampilStatusAwan();
+      if (perluSinkron) sinkron();
+      var sesi = null; try { sesi = sessionStorage.getItem('kasir-sesi'); } catch (e) {}
+      var k = sesi && D.kasir.find(function (x) { return x.id === sesi; });
+      if (k) masuk(k); else if (demo) { masuk(D.kasir[0]); [0, 0, 3, 8].forEach(function (i, n) { var p = D.produk[i]; if (p) tambahKeKeranjang(p, p.varian[n % p.varian.length]); }); } else tampilMasuk();
+    });
+  }).catch(function () { tampilAkun('Terjadi kesalahan saat memuat. Muat ulang halaman ya.'); });
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () {});
 
