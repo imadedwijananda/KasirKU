@@ -23,6 +23,7 @@
   --bayang-tinggi:0 2px 4px rgba(18,35,63,.05),0 18px 40px -12px rgba(18,35,63,.22);
   --font:var(--tema-font,"DM Sans"),system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --pegas:cubic-bezier(.22,1,.36,1); --halus:cubic-bezier(.2,.7,.2,1);
+  --nav-bawah:0px;
   /* nada latar ilustrasi: semua dari tema */
   --nada0:color-mix(in srgb,var(--aksen) 26%,var(--kartu));
   --nada1:color-mix(in srgb,var(--utama) 14%,var(--kartu));
@@ -142,7 +143,7 @@ button:focus-visible,label:focus-within:has(input[type=radio]){outline:2px solid
 .pengguna .tautan:hover{color:var(--nav-teks);background:var(--nav-garis)}
 main{overflow:auto;height:100%}
 .hal{display:none;padding:26px 30px 48px}
-.hal.aktif{display:block;animation:naik .38s var(--halus) both}
+.hal.aktif{display:block;animation:naik .38s var(--halus) backwards}
 #hal-kasir{padding:0;height:100%}
 .hal-kepala{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
 .hal-kepala h2{font-size:26px}
@@ -153,7 +154,7 @@ main{overflow:auto;height:100%}
 .dua-kolom{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
 .dua-kolom .panel{margin-bottom:0}
 .dua-kolom+.panel{margin-top:16px}
-@keyframes naik{from{opacity:0;transform:translateY(10px)}}
+@keyframes naik{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes munculPop{from{opacity:0;transform:scale(.9) translateY(12px)}}
 @keyframes denyut{40%{transform:scale(1.12)}}
 
@@ -369,7 +370,7 @@ dialog:has(.bayar){width:min(820px,calc(100% - 24px))}
 @media (max-width:1100px){.pos{grid-template-columns:minmax(0,1fr) 340px}}
 @media (max-width:960px){
   .pos{grid-template-columns:minmax(0,1fr)}
-  .keranjang{position:fixed;inset:auto 0 0 0;height:84vh;border-radius:28px 28px 0 0;border:0;box-shadow:0 -10px 50px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .38s var(--halus),background-color .35s;z-index:30}
+  .keranjang{position:fixed;left:0;right:0;bottom:var(--nav-bawah);height:calc(84vh - var(--nav-bawah));max-height:calc(100vh - var(--nav-bawah));max-height:calc(100dvh - var(--nav-bawah));border-radius:28px 28px 0 0;border:0;box-shadow:0 -10px 50px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .38s var(--halus),background-color .35s,bottom .38s var(--halus);z-index:30}
   .keranjang::before{content:"";display:block;width:44px;height:5px;border-radius:9px;background:var(--garis-kuat);margin:10px auto 0}
   .keranjang.buka{transform:none}
   .fab-keranjang{display:flex;align-items:center;gap:12px;position:fixed;left:16px;right:16px;bottom:16px;min-height:60px;padding:10px 12px 10px 18px;border-radius:var(--radius);border:0;background:var(--utama);color:var(--isi-utama);font-weight:700;font-size:15px;box-shadow:0 14px 30px -10px var(--utama);z-index:20;transition:transform .2s var(--pegas)}
@@ -395,7 +396,8 @@ dialog:has(.bayar){width:min(820px,calc(100% - 24px))}
   .cari{max-width:none;flex-basis:100%}
   .bawah{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--nav);color:var(--nav-teks);padding:6px 6px calc(6px + env(safe-area-inset-bottom));z-index:25;gap:2px}
   .bawah .nav{flex:1;font-size:11px;padding:6px 2px;min-height:54px}
-  .fab-keranjang{bottom:calc(80px + env(safe-area-inset-bottom))}
+  :root{--nav-bawah:calc(66px + env(safe-area-inset-bottom,0px))}
+  .fab-keranjang{bottom:calc(16px + var(--nav-bawah))}
   .grid-produk{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .kartu-produk{padding:8px 8px 12px;gap:8px}
   .kartu-produk b{font-size:14px}
@@ -445,7 +447,7 @@ html.mode-pilih [data-pilih-hover]{outline:2px solid #f43f5e!important;outline-o
 @media print{.struk .struk-logo{display:block;width:22mm;height:auto;margin:0 auto 2mm}}
 
 /* ===== banner pasang PWA ===== */
-.banner-pasang{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:80;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--kartu);color:var(--teks);border:1px solid var(--garis);border-radius:var(--r-besar);padding:14px 16px;box-shadow:var(--bayang-tinggi);animation:naik .4s var(--halus) both}
+.banner-pasang{position:fixed;left:12px;right:12px;bottom:calc(12px + var(--nav-bawah));z-index:28;display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--kartu);color:var(--teks);border:1px solid var(--garis);border-radius:var(--r-besar);padding:14px 16px;box-shadow:var(--bayang-tinggi);animation:naik .4s var(--halus) backwards}
 .banner-pasang[hidden]{display:none!important}
 .banner-pasang img{width:48px;height:48px;border-radius:12px;flex:none;background:#6c2bd9}
 .banner-pasang-teks{flex:1;min-width:160px}
