@@ -372,9 +372,9 @@ dialog:has(.bayar){width:min(820px,calc(100% - 24px))}
 @media (max-width:1100px){.pos{grid-template-columns:minmax(0,1fr) 340px}}
 @media (max-width:960px){
   .pos{grid-template-columns:minmax(0,1fr)}
-  .keranjang{position:fixed;left:0;right:0;bottom:var(--nav-bawah);height:calc(84vh - var(--nav-bawah));max-height:calc(100vh - var(--nav-bawah));max-height:calc(100dvh - var(--nav-bawah));border-radius:28px 28px 0 0;border:0;box-shadow:0 -10px 50px rgba(0,0,0,.25);transform:translateY(105%);transition:transform .38s var(--halus),background-color .35s,bottom .38s var(--halus);z-index:30}
+  .keranjang{position:fixed;left:0;right:0;bottom:var(--nav-bawah);height:calc(84vh - var(--nav-bawah));max-height:calc(100vh - var(--nav-bawah));max-height:calc(100dvh - var(--nav-bawah));border-radius:28px 28px 0 0;border:0;box-shadow:none;transform:translateY(calc(100% + var(--nav-bawah) + 60px));visibility:hidden;pointer-events:none;transition:transform .38s var(--halus),visibility 0s linear .38s,background-color .35s,bottom .38s var(--halus);z-index:30}
   .keranjang::before{content:"";display:block;width:44px;height:5px;border-radius:9px;background:var(--garis-kuat);margin:10px auto 0}
-  .keranjang.buka{transform:none}
+  .keranjang.buka{transform:none;visibility:visible;pointer-events:auto;box-shadow:0 -10px 50px rgba(0,0,0,.25);transition:transform .38s var(--halus),visibility 0s,background-color .35s,bottom .38s var(--halus)}
   .fab-keranjang{display:flex;align-items:center;gap:12px;position:fixed;left:16px;right:16px;bottom:16px;min-height:60px;padding:10px 12px 10px 18px;border-radius:var(--radius);border:0;background:var(--utama);color:var(--isi-utama);font-weight:700;font-size:15px;box-shadow:0 14px 30px -10px var(--utama);z-index:20;transition:transform .2s var(--pegas)}
   .fab-keranjang.bump{animation:denyut .35s var(--pegas)}
   .fab-n{padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--isi-utama) 18%,transparent);font-size:13px}
