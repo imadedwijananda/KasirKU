@@ -54,7 +54,9 @@ body,.samping,.panel,.kartu-produk,.keranjang,.tombol,.chip,.nav,.angka,.trx,.ta
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{font:15px/1.45 var(--font);background:var(--latar);color:var(--teks);-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+/* iOS Safari auto-zoom jika font input <16px (fokus/autofill). Jangan pakai maximum-scale=1 / user-scalable=no (merusak pinch-zoom). */
+input,select,textarea{font-size:16px}
 button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 svg:not(.logo):not(.ilus):not(.centang){width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -415,6 +417,7 @@ dialog:has(.bayar){width:min(820px,calc(100% - 24px))}
   .masuk-merek .masuk-slogan{display:none}
   .masuk-ilus{grid-template-columns:repeat(3,1fr)}
   .masuk-ilus .thumb:nth-child(n+4){display:none}
+  input,select,textarea{font-size:16px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.centang circle,.centang path{stroke-dashoffset:0}}
 
@@ -457,4 +460,5 @@ html.mode-pilih [data-pilih-hover]{outline:2px solid #f43f5e!important;outline-o
 @media (max-width:480px){
   .banner-pasang{padding:14px 14px 12px}
   .banner-pasang-aksi{width:100%;justify-content:flex-end}
+  input,select,textarea{font-size:16px}
 }
